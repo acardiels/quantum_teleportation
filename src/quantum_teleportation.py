@@ -1,16 +1,7 @@
 """
-Bell State Generator
+Quantum Teleportation — Bell State/ EPR State |Φ+⟩ = (|00⟩ + |11⟩) / √2   (default)
 ====================
-Implementation of the four Bell states using IBM Qiskit.
-
-Bell states are the four maximally entangled two-qubit states that form
-the foundation of quantum teleportation, superdense coding, and QKD protocols.
-
-States:
-    |Φ+⟩ = (|00⟩ + |11⟩) / √2   (default)
-    |Φ-⟩ = (|00⟩ - |11⟩) / √2
-    |Ψ+⟩ = (|01⟩ + |10⟩) / √2
-    |Ψ-⟩ = (|01⟩ - |10⟩) / √2
+Implementation of the quantum teleportation protocol using IBM Qiskit.
 
 Author: Alejandro Cardiel Santos
 GitHub: github.com/acardiels
@@ -22,12 +13,14 @@ import os
 from typing import Literal
 
 import matplotlib.pyplot as plt
-from qiskit import QuantumCircuit, transpile
 from qiskit.visualization import plot_histogram
 from qiskit_aer import AerSimulator
+from qiskit import QuantumCircuit, transpile, QuantumRegister, ClassicalRegister
+from qiskit.quantum_info import random_statevector, Statevector, partial_trace, state_fidelity
+
 
 # ── Type alias ────────────────────────────────────────────────────────────────
-BellState = Literal["phi+", "phi-", "psi+", "psi-"]
+BellState = Literal["phi+"]
 
 # ── Core circuit builder ──────────────────────────────────────────────────────
 
@@ -46,7 +39,7 @@ def build_bell_circuit(state: BellState = "phi+") -> QuantumCircuit:
         |Ψ-⟩  →  X on q_1 + Z on q_0
 
     Args:
-        state: One of "phi+", "phi-", "psi+", "psi-". Defaults to "phi+".
+        state: "phi+".
 
     Returns:
         QuantumCircuit: Parameterised circuit with 2 qubits and 2 classical bits.
@@ -54,11 +47,11 @@ def build_bell_circuit(state: BellState = "phi+") -> QuantumCircuit:
     Raises:
         ValueError: If an unknown state label is provided.
     """
-    valid = {"phi+", "phi-", "psi+", "psi-"}
+    valid = {"phi+"}
     if state not in valid:
         raise ValueError(f"Unknown Bell state '{state}'. Choose from {valid}.")
 
-    qc = QuantumCircuit(2, 2, name=f"Bell |{_latex_label(state)}⟩")
+    qc = QuantumCircuit(2)
 
     # ── Step 1: optional pre-corrections ────────────────────────────────────
     if state in ("psi+", "psi-"):
@@ -78,30 +71,91 @@ def build_bell_circuit(state: BellState = "phi+") -> QuantumCircuit:
     # If q0 = |1⟩, flip q1.  Result: correlated |00⟩ + |11⟩ (or |01⟩ + |10⟩)
     qc.cx(0, 1)
 
-    # ── Step 5: measurement ─────────────────────────────────────────────────
-    qc.measure([0, 1], [0, 1])
 
     return qc
+
+# --- Quantum Teleportation Circuit Builder ---
+
+def build_quantum_teleportation_circuit(epr_state: BellState = "phi+", quantum_state) -> QuantumCircuit:
+    """
+        Build the quantum circuit for the Quantum Teleportation protocol.
+    
+        The construction follows two steps:
+            1. Bell state preparation (q1 and q2)  →  creates entangled pair
+            2. CNOT (q0 → q1)       →  entangles both qubits
+            3. Hadamard on qubit 0  →  creates superposition |+⟩ on q_0
+            4. Measurement of q0 and q1  →  collapses the state of q2 to the teleported state
+    
+        Args:
+            state: Bell state "phi+" as EPR state.
+            quantum_state: The quantum state to be teleported.
+    
+        Returns:
+            QuantumCircuit: Parameterised circuit with 3 qubits and 2 classical bits.
+    
+        Raises:
+            ValueError: If an unknown Bell state "phi+" label is provided.
+    """
+
+    valid = {"phi+"}
+
+    if epr_state not in valid:
+            raise ValueError(f"Invalid EPR state '{epr_state}'. Choose from {valid}.")
+
+    qr = QuantumRegister(3, name="q")
+    cr = ClassicalRegister(2, name="c")    
+    qc_quantum_teleportation = QuantumCircuit(qr, cr, name="Quantum Teleportation for State Ψ")
+
+    qc_quantum_teleportation.initialize(quantum_state, 0)
+
+    qc_quantum_teleportation.append(build_bell_circuit(epr_state), [1, 2])
+
+    qc_quantum_teleportation.cx(0, 1)
+
+    qc_quantum_teleportation.h(0)
+
+    qc_quantum_teleportation.measure([0, 1], [0, 1])
+
+    # If bit 0 is 1 (c[0] == 1) -> Apply Z gate
+    with qc_quantum_teleportation.if_test((cr[0], 1)):
+        qc_quantum_teleportation.z(qr[2])
+
+    # If bit 1 is 1 (c[1] == 1) -> Apply X gate
+    with qc_quantum_teleportation.if_test((cr[1], 1)):
+        qc_quantum_teleportation.x(qr[2])
+
+    return qc_quantum_teleportation
+
 
 
 # ── Simulation ────────────────────────────────────────────────────────────────
 
-def run_simulation(qc: QuantumCircuit, shots: int = 1024, seed: int = 42,) -> dict[str, int]:
+def run_simulation(qc: QuantumCircuit) -> dict[str, int]:
     """
     Execute the circuit on the local Aer statevector simulator.
 
     Args:
         qc:    Quantum circuit to execute.
-        shots: Number of measurement repetitions. Defaults to 1024.
-        seed:  Random seed for reproducibility. Defaults to 42.
 
     Returns:
         dict: Bitstring counts, e.g. {"00": 512, "11": 512}.
     """
     backend = AerSimulator(method="statevector")
-    transpiled = transpile(qc, backend, optimization_level=1)
-    job = backend.run(transpiled, shots=shots, seed_simulator=seed)
-    return job.result().get_counts()
+    qc_sim = build_quantum_teleportation_circuit(epr_state="phi+", quantum_state=quantum_state)
+    qc_sim.save_density_matrix()  
+
+    transpiled = transpile(qc_sim, backend, optimization_level=1)
+    result = backend.run(transpiled).result()
+
+    rho_total = result.data()["density_matrix"]
+
+    rho_bob = partial_trace(rho_total, [0, 1])
+
+    state_alice = Statevector(quantum_state)
+
+    fidelity = state_fidelity(state_alice, rho_bob)
+
+    return result.get_counts(), fidelity
 
 
 # ── Visualisation ─────────────────────────────────────────────────────────────
@@ -116,36 +170,6 @@ def draw_circuit(qc: QuantumCircuit, output_path: str | None = None, style: str 
         style:       Qiskit drawing style. Defaults to "iqp".
     """
     fig = qc.draw(output="mpl", style=style, fold=-1)
-    _save_or_show(fig, output_path)
-
-
-def plot_results(counts: dict[str, int], state: BellState = "phi+", output_path: str | None = None,) -> None:
-    """
-    Plot a histogram of the measurement results.
-
-    For Bell states we expect two equally probable outcomes:
-        |Φ+⟩, |Φ-⟩  →  {"00": ~50%, "11": ~50%}
-        |Ψ+⟩, |Ψ-⟩  →  {"01": ~50%, "10": ~50%}
-
-    Args:
-        counts:      Measurement counts from run_simulation().
-        state:       Bell state label (used for the plot title).
-        output_path: File path for saving (PNG). Displays if None.
-    """
-    total = sum(counts.values())
-    title = (
-        f"Bell state |{_latex_label(state)}⟩  —  "
-        f"{total} shots  |  "
-        f"Expected: 50% / 50% equal superposition"
-    )
-    fig = plot_histogram(
-        counts,
-        title=title,
-        bar_labels=True,
-        figsize=(7, 4),
-        color=["#5B4DB5", "#1D9E75"],
-    )
-    fig.tight_layout()
     _save_or_show(fig, output_path)
 
 
@@ -224,36 +248,30 @@ def _save_or_show(fig: plt.Figure, path: str | None) -> None:
 if __name__ == "__main__":
     import argparse
 
+    quantum_state = random_statevector(2, seed=42) 
+
     parser = argparse.ArgumentParser(
-        description="Generate and simulate a Bell state using Qiskit."
+        description="Generate and simulate Quantum Teleportation using Qiskit."
     )
     parser.add_argument(
         "--state",
-        choices=["phi+", "phi-", "psi+", "psi-"],
+        choices=["phi+"],
         default="phi+",
-        help="Bell state to generate (default: phi+)",
+        help="Bell state/ EPR state (phi+)",
     )
-    parser.add_argument(
-        "--shots",
-        type=int,
-        default=1024,
-        help="Number of measurement shots (default: 1024)",
-    )
-    parser.add_argument(
-        "--save",
-        action="store_true",
-        help="Save circuit and histogram images to ./images/",
-    )
+    
     args = parser.parse_args()
 
     print(f"\n{'='*50}")
     print(f"  Bell State Generator — |{_latex_label(args.state)}⟩")
     print(f"{'='*50}")
 
-    counts = generate_bell_state(
-        state=args.state,
-        shots=args.shots,
-        save_images=args.save,
+    print(f"\n{'='*50}")
+    print(f"  Quantum State Ψ — {quantum_state}")
+    print(f"{'='*50}")
+
+    counts = generate_quantum_teleportation(
+        state=args.state, quantum_state=quantum_state
     )
 
     print(f"\n  Results ({args.shots} shots):")
