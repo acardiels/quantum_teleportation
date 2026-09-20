@@ -1,4 +1,3 @@
-````markdown
 # Quantum Teleportation Simulator
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -69,4 +68,3 @@ python src/quantum_teleportation.py
 ## 📜 Licencia
 
 Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo `LICENSE` para más detalles.
-````
