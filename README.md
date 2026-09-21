@@ -23,7 +23,7 @@ The circuit uses three qubits: `q0` holds the state to teleport, $|\psi\rangle =
 After steps 2 and 3, the global state of the three qubits is:
 
 $$
-\tfrac{1}{2}\Big[\,|00\rangle(\alpha|0\rangle+\beta|1\rangle) + |01\rangle(\alpha|1\rangle+\beta|0\rangle) + |10\rangle(\alpha|0\rangle-\beta|1\rangle) + |11\rangle(\alpha|1\rangle-\beta|0\rangle)\Big]
+\tfrac{1}{2}\Big[\|00\rangle(\alpha|0\rangle+\beta|1\rangle) + |01\rangle(\alpha|1\rangle+\beta|0\rangle) + |10\rangle(\alpha|0\rangle-\beta|1\rangle) + |11\rangle(\alpha|1\rangle-\beta|0\rangle)\Big]
 $$
 
 where the first two qubits are Alice's. Each measurement outcome leaves Bob with a version of $|\psi\rangle$ that can be fixed with a Pauli gate:
