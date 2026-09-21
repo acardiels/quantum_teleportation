@@ -52,10 +52,20 @@ def build_bell_circuit(state: BellState = "phi+") -> QuantumCircuit:
     qc_bell = QuantumCircuit(2)
 
     # ── Step 1: optional pre-corrections ────────────────────────────────────
+    if state in ("psi+", "psi-"):
+        # Flip target qubit so entanglement produces |01⟩ + |10⟩ basis
+        qc_bell.x(1)
+    
+    # ── Step 2: Hadamard on control qubit ───────────────────────────────────
     # H |0⟩ = (|0⟩ + |1⟩) / √2  →  equal superposition
-    qc_bell.h(0)
-
-    # ── Step 2: CNOT — creates entanglement ─────────────────────────────────
+        qc_bell.h(0)
+    
+    # ── Step 3: optional phase flip ─────────────────────────────────────────
+    if state in ("phi-", "psi-"):
+        # Z introduces a relative phase: H Z |0⟩ = (|0⟩ - |1⟩) / √2
+        qc_bell.z(0)
+    
+    # ── Step 4: CNOT — creates entanglement ─────────────────────────────────
     # If q0 = |1⟩, flip q1.  Result: correlated |00⟩ + |11⟩ (or |01⟩ + |10⟩)
     qc_bell.cx(0, 1)
 
@@ -103,14 +113,13 @@ def build_quantum_teleportation_circuit(quantum_state, epr_state: BellState = "p
 
     qc_quantum_teleportation.measure([0, 1], [0, 1])
 
-    # If bit 0 is 1 (c[0] == 1) -> Apply Z gate
-    with qc_quantum_teleportation.if_test((cr[0], 1)):
-        qc_quantum_teleportation.z(qr[2])
-
     # If bit 1 is 1 (c[1] == 1) -> Apply X gate
     with qc_quantum_teleportation.if_test((cr[1], 1)):
         qc_quantum_teleportation.x(qr[2])
 
+    # If bit 0 is 1 (c[0] == 1) -> Apply Z gate
+        with qc_quantum_teleportation.if_test((cr[0], 1)):
+            qc_quantum_teleportation.z(qr[2])
 
     return qc_quantum_teleportation
 
@@ -204,7 +213,7 @@ def generate_quantum_teleportation(quantum_state, state: BellState = "phi+", sav
         # Guardamos el circuito y los resultados usando la nueva ruta
         draw_circuit(
             qc,
-            output_path=os.path.join(target_dir, f"quantum_teleportation_circuit_{quantum_state.draw('text')}.png"),
+            output_path=os.path.join(target_dir, f"quantum_teleportation_circuit_quantum_state.png"),
         )
 
     return counts, fidelity, state_bob_corrected, state_alice
