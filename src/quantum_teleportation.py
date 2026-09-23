@@ -58,7 +58,7 @@ def build_bell_circuit(state: BellState = "phi+") -> QuantumCircuit:
     
     # ── Step 2: Hadamard on control qubit ───────────────────────────────────
     # H |0⟩ = (|0⟩ + |1⟩) / √2  →  equal superposition
-        qc_bell.h(0)
+    qc_bell.h(0)
     
     # ── Step 3: optional phase flip ─────────────────────────────────────────
     if state in ("phi-", "psi-"):
@@ -118,8 +118,8 @@ def build_quantum_teleportation_circuit(quantum_state, epr_state: BellState = "p
         qc_quantum_teleportation.x(qr[2])
 
     # If bit 0 is 1 (c[0] == 1) -> Apply Z gate
-        with qc_quantum_teleportation.if_test((cr[0], 1)):
-            qc_quantum_teleportation.z(qr[2])
+    with qc_quantum_teleportation.if_test((cr[0], 1)):
+        qc_quantum_teleportation.z(qr[2])
 
     return qc_quantum_teleportation
 
@@ -132,35 +132,34 @@ def run_simulation(quantum_state, qc: QuantumCircuit) -> dict[str, int]:
     Execute the circuit on the local Aer statevector simulator.
 
     Args:
-            state:       Bell state to generate. Defaults to "phi+".
-            save_images: If True, save circuit and histogram to ``images_dir``.
-            images_dir:  Directory for saved images. Created if absent.
+            qc: The quantum circuit to simulate.
             quantum_state: The quantum state to be teleported.
     
         Returns:
             dict: Fidelity, Bob's final state, and Alice's initial state.
     """
     backend = AerSimulator(method="statevector")
-    qc.save_density_matrix()  
+    qc_sim = qc.copy()
+    qc_sim.save_density_matrix()
 
-    transpiled = transpile(qc, backend, optimization_level=1)
+    transpiled = transpile(qc_sim, backend, optimization_level=1)
     result = backend.run(transpiled).result()
 
     rho_total = result.data()["density_matrix"]
 
     rho_bob = partial_trace(rho_total, [0, 1])
 
-    state_bob = rho_bob.to_statevector()
-
     state_alice = Statevector(quantum_state)
 
     fidelity = state_fidelity(state_alice, rho_bob)
+
+    state_bob = rho_bob.to_statevector()
 
     state_bob_corrected = fix_global_phase(state_bob, state_alice)
 
     return result.get_counts(), fidelity, state_bob_corrected, state_alice
 
-
+    
 # ── Visualisation ─────────────────────────────────────────────────────────────
 
 def draw_circuit(qc: QuantumCircuit, output_path: str | None = None) -> None:
